@@ -71,14 +71,58 @@
             return address(this).balance;
         }
     }
-5.使用<code>Attack</code>方法，向<code>EtherStore</code>合约转账1个ETH  
+5.使用<code>attack()</code>方法，向<code>EtherStore</code>合约转账1个ETH  
 
 ![image](https://user-images.githubusercontent.com/35074461/197674208-c5e45461-c663-4650-8853-58f31a713541.png)  
 
-6.查看<code>Attack</code>合约余额发现为5个ETH
+6.查看<code>Attack</code>合约余额发现为5个ETH，获得了4个ETH
 
 ![image](https://user-images.githubusercontent.com/35074461/197674478-73777950-7047-4ac9-b8ed-75d520101978.png)
 
 漏洞分析
 --
 
+在<code>Attack</code>合约中,<code>attack()</code>方法会先向<code>EtherStore</code>合约转账一个ETH  
+
+    etherStore.deposit{value: 1 ether}();  
+    
+然后请求<code>EtherStore</code>合约的<code>withdraw()</code>方法进行退款  
+
+    etherStore.withdraw();  
+    
+漏洞出现在<code>withdraw()</code>方法中，合约会先判断账户是否有余额，如果有余额就使用call方法进行退款  
+
+    (bool sent, ) = msg.sender.call{value: bal}("");  
+    
+然后才将账户余额置零  
+
+    balances[msg.sender] = 0;  
+
+当<code>Attack</code>合约收到转帐时会触发<code>fallback()</code>回调函数，在回调函数中会判断<code>EtherStore</code>合约是否还有余额，有的话就继续调用<code>withdraw()</code>方法  
+
+    if (address(etherStore).balance >= 1 ether) {
+        etherStore.withdraw();
+    }
+
+因为对攻击合约余额的判断在退款之后，所以会形成递归，每次退回1ETH直至<code>EtherStore</code>合约余额为空  
+
+加固建议
+--
+
+1.状态变更需要在外部合约调用前完成  
+
+2.使用防止重入的函数修饰  
+
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.13;
+
+    contract ReEntrancyGuard {
+        bool internal locked;
+
+        modifier noReentrant() {
+            require(!locked, "No re-entrancy");
+            locked = true;
+            _;
+            locked = false;
+        }
+    }
